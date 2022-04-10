@@ -10,7 +10,7 @@ bool Conjugate_Gradient_print(string file_name,double (*func)(int,VECTOR &),VECT
 
 
 const int n = 20;
-const int N = 400; // 20 X 20 lattice sites
+const int N = n*n; // 20 X 20 lattice sites
 
 const double m2 = 0.04;
 
