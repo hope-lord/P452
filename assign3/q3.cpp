@@ -9,10 +9,11 @@ class Solve_Laplace_2D{
 	
 	int nx, ny, n;
 	double x0,x1,y0,y1,h;
-    double (*BoundaryCondition)(double x,double y) = NULL;
-	VECTOR phi;
+    double (*BoundaryCondition)(double ,double ) = NULL;
+
+	VECTOR phi,B;
 	public:
-    Solve_Laplace_2D(double(*f)(double,double),double x0,double x1,double y0,double y1,double h , double eps = 1e-6){
+    Solve_Laplace_2D(double(*f)(double,double),double x0,double x1,double y0,double y1,double h){
 		this->x0 = x0;
 		this->x1 = x1;
 		this->y0 = y0;
@@ -26,7 +27,8 @@ class Solve_Laplace_2D{
 		phi.resize(n);
 		for(int i = 0; i < n; i++)
 			phi[i] = random_double(-1,1);
-		VECTOR B(n,0);
+		
+		B.resize(n,0); // Boundry Condition 
 		for(int i = 0; i < nx; i++)
 		    B[i] -= BoundaryCondition(x0+i*h+h,y0);
 		for(int i = 0; i < nx; i++)
@@ -35,14 +37,23 @@ class Solve_Laplace_2D{
 			B[i*nx] -= BoundaryCondition(x0,y0+i*h+h);
 		for(int i = 0; i < ny; i++)
 			B[i*nx+nx-1] -= BoundaryCondition(x1,y0+i*h+h);
-		Conjugate_Gradient(B,eps);
+	}
+	
+	void solve(){
+		Conjugate_Gradient(B);
+	}
+	
+	void Possion_Function(double(*rho)(double,double)){
+		for(int i = 0; i < nx; i++)
+			for(int j = 0; j < ny; j++)
+				B[i *nx+j] += h*h*rho(x0+i*h+h,y0+j*h+h);
 	}
 
 	double Laplace_Operator(int i, VECTOR& vec){
 		int x = i%nx;
 		int y = i/nx;
 
-		double sum = -4*vec[i];
+		double sum = -4*vec[i] ;
 		if(x>0) sum += vec[i-1];
 		/* else  sum += BoundaryCondition(x0,h*(y+1)+y0); */
 		if(x<nx-1) sum += vec[i+1];
@@ -60,11 +71,25 @@ class Solve_Laplace_2D{
 
 	void print_to_file (string filename){
 		FILE *file = fopen(filename.c_str(),"w");
-		for(int i=1;i<=nx;i++){
-			for(int j=1;j<ny;j++){
-				fprintf(file,"%lf %lf %lf\n",x0+i*h,y0+j*h,phi[j*nx+i]);
+		for ( int i = 0; i < ny+2; i++ )
+			fprintf(file,"%lf %lf %lf\n",x0,y0+i*h,BoundaryCondition(x0,y0+i*h));
+		for(int i=0;i<nx;i++){
+			fprintf(file,"%lf %lf %lf\n",x0+i*h+h,y0,BoundaryCondition(x0+i*h+h,y0));
+			for(int j=0;j<ny;j++){
+				fprintf(file,"%lf %lf %lf\n",x0+i*h+h,y0+j*h+h,phi[j*nx+i]);
 			}
+			fprintf(file,"%lf %lf %lf\n",x0+i*h+h,y1,BoundaryCondition(x0+i*h+h,y1));
 		}
+
+		/* for ( int i = 0; i < nx+2; i++ ) */
+		/* 	fprintf(file,"%lf %lf %lf\n",x0+i*h,y0,BoundaryCondition(x0+i*h,y0)); */
+		/* for ( int i = 0; i < nx+2; i++ ) */
+		/* 	fprintf(file,"%lf %lf %lf\n",x0+i*h,y1,BoundaryCondition(x0+i*h,y1)); */
+		/* for ( int i = 0; i < ny+2; i++ ) */
+			/* fprintf(file,"%lf %lf %lf\n",x0,y0+i*h,BoundaryCondition(x0,y0+i*h)); */
+		for ( int i = 0; i < ny+2; i++ )
+			fprintf(file,"%lf %lf %lf\n",x1,y0+i*h,BoundaryCondition(x1,y0+i*h));
+
 		fclose(file);
 	}
 
@@ -105,12 +130,12 @@ class Solve_Laplace_2D{
         i++;
         rr = rr_new;
     	}
-
 		return (r_norm<err);//true;
 	}
 	
 	~Solve_Laplace_2D(){
 		phi.clear();
+		B.clear();
 	}
 
 };
@@ -118,10 +143,18 @@ class Solve_Laplace_2D{
 double f(double x,double y){
 	if (y==0) return 1;
 	else return 0;
+	/* return 0; */
+}
+
+double rho(double x,double y){
+	/* return -1; */
+	return 0;
 }
 
 int main(){
-	Solve_Laplace_2D *solver= new Solve_Laplace_2D(&f,0,1,0,1,0.005);
+	Solve_Laplace_2D *solver= new Solve_Laplace_2D(&f,0,1,0,1,0.05);
+	solver->Possion_Function(&rho);
+	solver->solve();
 	solver->print_to_file("q3_out.txt");
 	delete solver;
 	return 0;
